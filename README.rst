@@ -42,8 +42,8 @@ Or human readable
 
     echo prettystats | nc 127.0.0.1 7777
 
-Normal Mode
------------
+File Mode
+---------
 
 Pass it a list of log files or stdin and it will aggregate them and dump a json dictionary
 
