@@ -34,6 +34,12 @@ Primary use is as a syslog destination
         destination(df_postfix_stats);
     };
 
+**syslog**
+
+::
+
+    mail.*  |/usr/bin/python /usr/bin/postfix_stats.py -d -c 4 -
+
 To grab the current cumulative stats as a json dump
 
     echo stats | nc 127.0.0.1 7777
