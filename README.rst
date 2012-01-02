@@ -28,7 +28,7 @@ Primary use is as a syslog destination
     destination df_postfix_stats { program("/usr/bin/python /usr/bin/postfix_stats.py -d -c 4 -"); };
     filter f_postfix { program("^postfix/"); };
     log {
-        source(s_all);
+        source(src);
         filter(f_mail);
         filter(f_postfix);
         destination(df_postfix_stats);
