@@ -50,6 +50,15 @@ Create ``postfix_stats.sh`` that calls postfix_stats.py with the arguments you w
     $actionomprogbinary /usr/bin/postfix_stats.sh
     :syslogtag, startswith, "postfix" :omprog:;RSYSLOG_TraditionalFileFormat
 
+**tail**
+
+If you don't want to wire it up to syslog but need current stats use this.
+
+::
+
+    tail -qf /var/log/mail.* | /usr/bin/postfix_stats.py -d
+
+
 To grab the current cumulative stats as a json dump
 
     echo stats | nc 127.0.0.1 7777
