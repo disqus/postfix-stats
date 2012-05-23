@@ -221,6 +221,19 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 
+def stdin_reader():
+    while 1:
+        try:
+            line = sys.stdin.readline()
+        except KeyboardInterrupt:
+            break
+
+        if not line:
+            break
+
+        yield line
+
+
 def main(logs, daemon=False, host='127.0.0.1', port=7777, concurrency=2, local_emails=None, **kwargs):
     true_values = ['yes', '1', 'true']
     for local_email in local_emails:
@@ -249,9 +262,15 @@ def main(logs, daemon=False, host='127.0.0.1', port=7777, concurrency=2, local_e
 
     parser_pool = ParserPool(concurrency)
 
-    for line in fileinput.input(logs):
+    if not logs or logs[0] is '-':
+        reader = stdin_reader()
+        reader.isstdin = lambda: True
+    else:
+        reader = fileinput.input(logs)
+
+    for line in reader:
         try:
-            parser_pool.add_line(line.strip('\n'), not fileinput.isstdin())
+            parser_pool.add_line(line.strip('\n'), not reader.isstdin())
         except Full:
             logger.warning('Line parser queue full')
             # Dont really care

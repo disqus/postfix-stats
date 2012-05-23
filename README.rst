@@ -40,6 +40,16 @@ Primary use is as a syslog destination
 
     mail.*  |/usr/bin/python /usr/bin/postfix_stats.py -d -c 4 -
 
+**rsyslog**
+
+Create ``postfix_stats.sh`` that calls postfix_stats.py with the arguments you wish to use
+
+::
+
+    $ModLoad omprog
+    $actionomprogbinary /usr/bin/postfix_stats.sh
+    :syslogtag, startswith, "postfix" :omprog:;RSYSLOG_TraditionalFileFormat
+
 To grab the current cumulative stats as a json dump
 
     echo stats | nc 127.0.0.1 7777
