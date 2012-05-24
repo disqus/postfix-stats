@@ -15,7 +15,7 @@ import re
 import SocketServer
 import sys
 
-from collections import defaultdict
+from collections import defaultdict, Iterator
 from optparse import OptionParser
 from Queue import Queue, Full
 from threading import Thread, Lock
@@ -221,17 +221,20 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 
-def stdin_reader():
-    while 1:
+class StdinReader(Iterator):
+    def next(self):
         try:
             line = sys.stdin.readline()
         except KeyboardInterrupt:
-            break
+            raise StopIteration
 
         if not line:
-            break
+            raise StopIteration
 
-        yield line
+        return line
+
+    def isstdin(self):
+        return True
 
 
 def main(logs, daemon=False, host='127.0.0.1', port=7777, concurrency=2, local_emails=None, **kwargs):
@@ -263,8 +266,7 @@ def main(logs, daemon=False, host='127.0.0.1', port=7777, concurrency=2, local_e
     parser_pool = ParserPool(concurrency)
 
     if not logs or logs[0] is '-':
-        reader = stdin_reader()
-        reader.isstdin = lambda: True
+        reader = StdinReader()
     else:
         reader = fileinput.input(logs)
 
