@@ -9,7 +9,7 @@ except ImportError:
 
 setup(
     name='postfix-stats',
-    version='0.3.1',
+    version='0.3.2',
     author='DISQUS',
     author_email='opensource@disqus.com',
     url='http://github.com/disqus/postfix-stats',
