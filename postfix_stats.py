@@ -148,10 +148,11 @@ class SmtpHandler(Handler):
 
 class SmtpdHandler(Handler):
     facilities = set(['smtpd'])
-    filter_re = re.compile(r'\A(?P<message_id>\w+?): client=(?P<hostname>.*?)\[(?P<ip>.*?)\]\Z')
+    filter_re = re.compile(r'\A(?P<message_id>\w+?): client=(?P<client_hostname>[.\w-]+)\[(?P<client_ip>[A-Fa-f0-9.:]{3,39})\](?:, sasl_method=[\w-]+)?(?:, sasl_username=[-_.@\w]+)?(?:, sasl_sender=\S)?(?:, orig_queue_id=\w+)?(?:, orig_client=(?P<orig_client_hostname>[.\w-]+)\[(?P<orig_client_ip>[A-Fa-f0-9.:]{3,39})\])?\Z')
 
     @classmethod
-    def handle(self, message_id=None, hostname=None, ip=None):
+    def handle(self, message_id=None, client_hostname=None, client_ip=None, orig_client_hostname=None, orig_client_ip=None):
+        ip = orig_client_ip or client_ip
         with stats_lock:
             stats['clients'][ip] += 1
 
