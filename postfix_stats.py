@@ -196,7 +196,7 @@ class Parser(Thread):
             logger.debug(pline)
 
             component, facility = pline['facility'].split('/')
-            component = component.replace('postfix-', '')
+            component = component.replace('postfix-', '') if relay_mode else None
 
             for handler in handlers[facility]:
                 Handler.component = component
@@ -301,6 +301,7 @@ def main(logs, daemon=False, host='127.0.0.1', port=7777, concurrency=2, local_e
     return 0
 
 if __name__ == '__main__':
+    global relay_mode
     usage = "usage: %prog [options] file1 file2 ... fileN"
     opt_parser = OptionParser(usage)
     opt_parser.add_option("-v", "--verbose", dest="verbosity", default=0, action="count",
@@ -315,6 +316,8 @@ if __name__ == '__main__':
         help="Number of threads to spawn for handling lines", metavar="NUM")
     opt_parser.add_option("-l", "--local", dest="local_emails", default=[], action="append",
         help="Search for STRING in incoming email addresses and incr stat NAME and if COUNT, count in incoming - STRING,NAME,COUNT", metavar="LOCAL_TUPLE")
+    opt_parser.add_option("-r", "--relay-mode", dest="relay", default=False, action="store_true",
+        help="Activate the aggregator in relay-mode")
 
     (options, args) = opt_parser.parse_args()
 
@@ -324,5 +327,7 @@ if __name__ == '__main__':
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.ERROR)
+
+    relay_mode = options.relay
 
     sys.exit(main(args, **options.__dict__))
