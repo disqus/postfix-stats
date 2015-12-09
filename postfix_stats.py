@@ -29,10 +29,12 @@ stats_lock = Lock()
 
 stats = {}
 stats['recv'] = {
+    'relay_status': defaultdict(lambda: defaultdict(int)),
     'status': defaultdict(int),
     'resp_codes': defaultdict(int),
 }
 stats['send'] = {
+    'relay_status': defaultdict(lambda: defaultdict(int)),
     'status': defaultdict(int),
     'resp_codes': defaultdict(int),
 }
@@ -40,6 +42,7 @@ stats['in'] = {
     'status': defaultdict(int),
     'resp_codes': defaultdict(int),
 }
+stats['relay_clients'] = defaultdict(lambda: defaultdict(int))
 stats['clients'] = defaultdict(int)
 stats['local'] = defaultdict(int)
 
@@ -49,6 +52,7 @@ local_addresses = {}
 class Handler(object):
     filter_re = re.compile(r'(?!)')
     facilities = None
+    component = None
 
     def __init__(self, *args, **kwargs):
         assert isinstance(self.filter_re, re._pattern_type)
@@ -142,7 +146,10 @@ class SmtpHandler(Handler):
     def handle(self, message_id=None, to_email=None, relay=None, conn_use=None, delay=None, delays=None, dsn=None, status=None, response=None):
         with stats_lock:
             stat = 'recv' if '127.0.0.1' in relay else 'send'
-            stats[stat]['status'][status] += 1
+            if self.component is None:
+                stats[stat]['status'][status] += 1
+            else:
+                stats[stat]['relay_status'][self.component][status] += 1
             stats[stat]['resp_codes'][dsn] += 1
 
 
@@ -154,8 +161,11 @@ class SmtpdHandler(Handler):
     def handle(self, message_id=None, client_hostname=None, client_ip=None, orig_client_hostname=None, orig_client_ip=None):
         ip = orig_client_ip or client_ip
         with stats_lock:
-            stats['clients'][ip] += 1
 
+            if self.component is None:
+                stats['clients'][ip] += 1
+            else:
+                stats['relay_clients'][self.component][ip] += 1
 
 class Parser(Thread):
     line_re = re.compile(r'\A(?P<iso_date>\D{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?P<source>.+?)\s+(?P<facility>.+?)\[(?P<pid>\d+?)\]:\s(?P<message>.*)\Z')
@@ -185,9 +195,11 @@ class Parser(Thread):
             pline = pln.groupdict()
             logger.debug(pline)
 
-            facility = pline['facility'].split('/')
+            component, facility = pline['facility'].split('/')
+            component = component.replace('postfix-', '')
 
-            for handler in handlers[facility[-1]]:
+            for handler in handlers[facility]:
+                Handler.component = component
                 handler.parse(pline['message'])
 
 
