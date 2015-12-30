@@ -25,8 +25,6 @@ logger = logging.getLogger('postfix_stats')
 
 handlers = defaultdict(list)
 
-stats_lock = Lock()
-
 stats = {}
 stats['recv'] = {
     'relay_status': defaultdict(lambda: defaultdict(int)),
@@ -53,6 +51,7 @@ class Handler(object):
     filter_re = re.compile(r'(?!)')
     facilities = None
     component = None
+    handle_lock = Lock()
 
     def __init__(self, *args, **kwargs):
         assert isinstance(self.filter_re, re._pattern_type)
@@ -62,11 +61,13 @@ class Handler(object):
 
     @classmethod
     def parse(self, line):
-        pline = self.filter_re.match(line)
+        pline = self.filter_re.match(line['message'])
 
         if pline:
             logger.debug(pline.groupdict())
-            self.handle(**pline.groupdict())
+            with self.handle_lock:
+                self.component = line['component']
+                self.handle(**pline.groupdict())
 
     @classmethod
     def handle(self, **kwargs):
@@ -122,11 +123,10 @@ class LocalHandler(Handler):
 
             logger.debug('Local address <%s> count (%s) as "%s"', search, count, name)
 
-            with stats_lock:
-                stats['local'][name] += 1
-                if count:
-                    stats['in']['status'][status] += 1
-                    stats['in']['resp_codes'][dsn] += 1
+            stats['local'][name] += 1
+            if count:
+                stats['in']['status'][status] += 1
+                stats['in']['resp_codes'][dsn] += 1
 
 
 class QmgrHandler(Handler):
@@ -144,13 +144,12 @@ class SmtpHandler(Handler):
 
     @classmethod
     def handle(self, message_id=None, to_email=None, relay=None, conn_use=None, delay=None, delays=None, dsn=None, status=None, response=None):
-        with stats_lock:
-            stat = 'recv' if '127.0.0.1' in relay else 'send'
-            if self.component is None:
-                stats[stat]['status'][status] += 1
-            else:
-                stats[stat]['relay_status'][self.component][status] += 1
-            stats[stat]['resp_codes'][dsn] += 1
+        stat = 'recv' if '127.0.0.1' in relay else 'send'
+        if self.component is None:
+            stats[stat]['status'][status] += 1
+        else:
+            stats[stat]['relay_status'][self.component][status] += 1
+        stats[stat]['resp_codes'][dsn] += 1
 
 
 class SmtpdHandler(Handler):
@@ -160,12 +159,11 @@ class SmtpdHandler(Handler):
     @classmethod
     def handle(self, message_id=None, client_hostname=None, client_ip=None, orig_client_hostname=None, orig_client_ip=None):
         ip = orig_client_ip or client_ip
-        with stats_lock:
 
-            if self.component is None:
-                stats['clients'][ip] += 1
-            else:
-                stats['relay_clients'][self.component][ip] += 1
+        if self.component is None:
+            stats['clients'][ip] += 1
+        else:
+            stats['relay_clients'][self.component][ip] += 1
 
 class Parser(Thread):
     line_re = re.compile(r'\A(?P<iso_date>\D{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?P<source>.+?)\s+(?P<facility>.+?)\[(?P<pid>\d+?)\]:\s(?P<message>.*)\Z')
@@ -197,10 +195,10 @@ class Parser(Thread):
 
             component, facility = pline['facility'].split('/')
             component = component.replace('postfix-', '') if relay_mode else None
+            pline['component'] = component
 
             for handler in handlers[facility]:
-                Handler.component = component
-                handler.parse(pline['message'])
+                handler.parse(pline)
 
 
 class ParserPool(object):
