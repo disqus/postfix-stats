@@ -61,11 +61,13 @@ class Handler(object):
 
     @classmethod
     def parse(self, line):
-        pline = self.filter_re.match(line)
+        pline = self.filter_re.match(line['message'])
 
         if pline:
             logger.debug(pline.groupdict())
-            self.handle(**pline.groupdict())
+            with self.handle_lock:
+                self.component = line['component']
+                self.handle(**pline.groupdict())
 
     @classmethod
     def handle(self, **kwargs):
@@ -193,11 +195,10 @@ class Parser(Thread):
 
             component, facility = pline['facility'].split('/')
             component = component.replace('postfix-', '') if relay_mode else None
+            pline['component'] = component
 
             for handler in handlers[facility]:
-                with Handler.handle_lock:
-                    Handler.component = component
-                    handler.parse(pline['message'])
+                handler.parse(pline)
 
 
 class ParserPool(object):
